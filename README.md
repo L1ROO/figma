@@ -10,6 +10,7 @@ Editor de diseño tipo Figma, hecho para que Claude pueda leer y editar tus dise
 - Panel de capas con arrastre para reordenar o meter dentro de frames, ocultar y bloquear.
 - Panel de propiedades: posición, tamaño, rotación, radio, opacidad, relleno (colores o gradientes CSS), borde, sombra, tipografía (cualquier fuente de Google Fonts).
 - Varias páginas por diseño, deshacer y rehacer, exportar a SVG.
+- Prototipos: conectá botones con pantallas y probalo con **Presentar**, también desde el celular.
 - Servidor MCP con 14 herramientas, incluida una captura PNG para que Claude vea cómo quedó.
 
 ## Traer diseños de Figma (sin gastar tokens)
@@ -19,6 +20,15 @@ Editor de diseño tipo Figma, hecho para que Claude pueda leer y editar tus dise
 3. Exportá y arrastrá el `.svg` al lienzo, o tocá **Importar**. También podés pegar el SVG con Ctrl+V.
 
 La conversión la hace la página: frames, textos, rectángulos, elipses, líneas, degradados, sombras e imágenes quedan como capas editables. Los íconos y formas complejas quedan como imágenes vectoriales. Si querés soltar un SVG como imagen única, mantené Shift al arrastrarlo.
+
+## Prototipos
+
+1. Seleccioná el botón (o cualquier capa) y en el panel derecho, en **Prototipo → Al tocar**, elegí la pantalla a la que lleva o **Volver atrás**.
+2. Elegí la animación: fundido, deslizar o ninguna. En el lienzo aparece una flecha hasta la pantalla de destino.
+3. Tocá **Presentar** (o Shift+Enter). Arranca desde el frame seleccionado o desde el primero de la página.
+4. En el modo Presentar, tocar fuera de un botón muestra en azul qué zonas se pueden tocar. Esc sale y R vuelve al inicio.
+
+La URL del modo Presentar se puede abrir en el celular para probarlo ahí (pide la misma clave). Claude también puede armar las conexiones por MCP con `update_nodes` y la propiedad `link`.
 
 ## Subirlo a Render
 
@@ -71,4 +81,4 @@ Abrí http://localhost:3000. Sin `ACCESS_TOKEN` no pide clave y el MCP queda en 
 
 ## Lo que todavía no tiene
 
-Auto layout, componentes y variantes, herramienta pluma (vectores), prototipos e importar archivos `.fig`. La captura del MCP aproxima los gradientes a color sólido y usa una tipografía sans genérica; en el navegador se ve todo con la fuente real.
+Auto layout, componentes y variantes, herramienta pluma (vectores), interacciones avanzadas de prototipo (hover, overlays, scroll fijo) e importar archivos `.fig`. La captura del MCP aproxima los gradientes a color sólido y usa una tipografía sans genérica; en el navegador se ve todo con la fuente real.

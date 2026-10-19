@@ -1,5 +1,6 @@
 import { applyOp, toSpec, newId, CONTAINER_TYPES, absolutePosition } from '/shared/doc.js';
 import { importSvg, loadSvgFonts } from '/import-svg.js';
+import { startPlayer, refreshPlayer, playerOpen, stopPlayer } from '/player.js';
 
 // ============================================================
 // Utilidades
@@ -159,7 +160,12 @@ function onFullDoc(d) {
   document.title = `${d.name} · Lienzo`;
   $('#docName').value = d.name;
   invalidate(...ALL);
-  if (firstLoad) { firstLoad = false; requestAnimationFrame(() => zoomToFit()); }
+  if (firstLoad) {
+    firstLoad = false;
+    requestAnimationFrame(() => zoomToFit());
+    const play = new URLSearchParams(location.search).get('play');
+    if (play && N(play)) { state.pageId = pageOfNode(play) || state.pageId; requestAnimationFrame(() => present(play)); }
+  } else if (playerOpen()) refreshPlayer();
 }
 
 let liveTimer = 0;
@@ -347,6 +353,7 @@ function invalidate(...parts) {
 function flushRender() {
   raf = 0;
   if (!state.doc) return;
+  if (dirty.world && playerOpen()) refreshPlayer();
   if (dirty.world) renderWorld();
   if (dirty.world || dirty.overlay) { applyCamera(); renderOverlay(); renderLabels(); }
   if (dirty.pages) renderPages();
@@ -492,6 +499,34 @@ function renderOverlay() {
   if (state.createPreview) {
     const r = rectScreen(state.createPreview);
     parts.push(`<rect class="ov-sel" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
+  }
+  // Conexiones de prototipo de lo seleccionado (y lo que tiene adentro)
+  const linked = new Set();
+  const collect = (id) => { const n = N(id); if (!n) return; if (n.link) linked.add(id); (n.children || []).forEach(collect); };
+  sel.forEach(collect);
+  if (linked.size && !drag) {
+    parts.push(`<defs><marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent);stroke:none"/></marker></defs>`);
+    for (const id of linked) {
+      const n = N(id);
+      const a = rectScreen(absRect(id));
+      parts.push(`<rect class="ov-link-src" x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}"/>`);
+      if (n.link === 'back') {
+        parts.push(`<text class="ov-link-label" x="${a.x + a.w + 6}" y="${a.y + a.h / 2 + 4}">← Volver</text>`);
+        continue;
+      }
+      const t = N(n.link);
+      if (!t || pageOfNode(t.id) !== state.pageId) {
+        parts.push(`<text class="ov-link-label" x="${a.x + a.w + 6}" y="${a.y + a.h / 2 + 4}">→ ${esc(t ? t.name : 'destino borrado')}</text>`);
+        continue;
+      }
+      const b = rectScreen(absRect(t.id));
+      const x1 = a.x + a.w, y1 = a.y + a.h / 2;
+      const toLeft = b.x >= x1;
+      const x2 = toLeft ? b.x : b.x + b.w, y2 = b.y + Math.min(b.h / 2, 60 * state.cam.z);
+      const dx = Math.max(40, Math.abs(x2 - x1) / 2);
+      parts.push(`<path class="ov-link" d="M${x1} ${y1} C ${x1 + dx} ${y1}, ${toLeft ? x2 - dx : x2 + dx} ${y2}, ${x2} ${y2}" marker-end="url(#arrowhead)"/>`);
+      parts.push(`<circle class="ov-link-dot" cx="${x1}" cy="${y1}" r="4"/>`);
+    }
   }
   for (const g of state.guides) {
     const a = toScreen(g.x1, g.y1), b = toScreen(g.x2, g.y2);
@@ -1010,9 +1045,10 @@ $('#tools').addEventListener('click', (e) => {
 const isTyping = (t) => t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 
 document.addEventListener('keydown', (e) => {
-  if ($('#editor').hidden || !state.doc) return;
+  if ($('#editor').hidden || !state.doc || playerOpen()) return;
   if (isTyping(e.target)) return;
   const mod = e.ctrlKey || e.metaKey;
+  if (e.key === 'Enter' && e.shiftKey && !mod) { e.preventDefault(); present(); return; }
   const k = e.key.toLowerCase();
 
   if (e.key === ' ' && !state.spaceDown) { state.spaceDown = true; vp.classList.add('panning'); e.preventDefault(); return; }
@@ -1649,6 +1685,28 @@ function renderProps() {
     html.push(`<div class="prop-group"><h4>Sombra ${sh ? `<button class="add-link" data-action="clear" data-prop="shadow" title="Quitar">−</button>` : `<button class="add-link" data-action="add" data-prop="shadow" title="Agregar">+</button>`}</h4>
       ${sh ? `<label class="field" title="Formato CSS: x y desenfoque color"><input data-key="shadow" data-kind="str" value="${esc(shown(sh))}"></label>` : ''}</div>`);
   }
+  if (nodes.length === 1) {
+    const n = nodes[0];
+    const myTop = topFrameOf(n.id);
+    const frames = [];
+    for (const pid of N(state.doc.rootId).children) {
+      for (const fid of N(pid).children) {
+        const f = N(fid);
+        if (f?.type === 'FRAME' && fid !== myTop) frames.push({ id: fid, label: pid === state.pageId ? f.name : `${N(pid).name} / ${f.name}` });
+      }
+    }
+    html.push(`<div class="prop-group"><h4>Prototipo</h4>
+      <label class="field" title="Al tocar esta capa en modo Presentar"><span>Al tocar</span><select data-key="link" data-kind="link">
+        <option value="">Nada</option>
+        <option value="back" ${n.link === 'back' ? 'selected' : ''}>Volver atrás</option>
+        ${frames.map((f) => `<option value="${f.id}" ${n.link === f.id ? 'selected' : ''}>Ir a ${esc(f.label)}</option>`).join('')}
+      </select></label>
+      ${n.link ? `<label class="field"><span>Animación</span><select data-key="transition" data-kind="str">
+        ${[['dissolve', 'Fundido'], ['slide', 'Deslizar'], ['instant', 'Sin animación']].map(([v, l]) => `<option value="${v}" ${(n.transition || 'dissolve') === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select></label>` : ''}
+      <button class="btn" data-action="present">Presentar</button>
+    </div>`);
+  }
   html.push(`<div class="prop-group"><p class="hint">Doble clic para entrar en un grupo · Ctrl/⌘+clic selecciona directo · Shift+1 ajusta a pantalla</p></div>`);
   el.innerHTML = html.join('');
 }
@@ -1722,6 +1780,7 @@ $('#props').addEventListener('change', (e) => {
     case 'num': v = evalNum(t.value); if (v === null) return invalidate('props'); break;
     case 'pct': v = evalNum(t.value); if (v === null) return; v = clamp(v / 100, 0, 1); break;
     case 'numsel': v = Number(t.value); break;
+    case 'link': v = t.value || null; break;
     case 'bool': v = t.checked; break;
     case 'color': v = t.value.trim() || null; break;
     case 'colorpick': v = t.value; break;
@@ -1756,6 +1815,7 @@ $('#props').addEventListener('click', (e) => {
     return commitProp(prop, def);
   }
   if (b.dataset.action === 'replace-image') pickImage(null, state.selection[0]);
+  if (b.dataset.action === 'present') present();
 });
 
 // ============================================================
@@ -1784,6 +1844,35 @@ $('#exportBtn').addEventListener('click', async () => {
 // ============================================================
 // Abrir el editor
 // ============================================================
+// ============================================================
+// Modo Presentar
+// ============================================================
+function topFrameOf(id) {
+  let n = N(id);
+  while (n && N(n.parentId) && N(n.parentId).type !== 'PAGE') n = N(n.parentId);
+  return n && N(n.parentId)?.type === 'PAGE' ? n.id : null;
+}
+
+function present(startId) {
+  let start = startId || (state.selection[0] && topFrameOf(state.selection[0]));
+  if (start && N(start)?.type !== 'FRAME') start = null;
+  if (!start) {
+    const frames = N(state.pageId).children.map(N).filter((n) => n?.type === 'FRAME' && n.visible !== false);
+    frames.sort((a, b) => a.y - b.y || a.x - b.x);
+    start = frames[0]?.id;
+  }
+  if (!start) { toast('Para presentar, creá al menos un frame en esta página'); return; }
+  if (state.editingText) els.get(state.editingText)?._tx?.blur();
+  const setUrl = (id) => {
+    const u = new URL(location.href);
+    if (id) u.searchParams.set('play', id); else u.searchParams.delete('play');
+    history.replaceState(null, '', u);
+  };
+  setUrl(start);
+  startPlayer({ N, nodeCss, startId: start, onNavigate: setUrl, onExit: () => setUrl(null) });
+}
+$('#presentBtn').addEventListener('click', () => present());
+
 function openEditor(id) {
   showScreen('editor');
   state.docId = id;

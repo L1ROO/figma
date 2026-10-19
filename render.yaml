@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: lienzo
+    runtime: node
+    rootDir: lienzo
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ACCESS_TOKEN
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lienzo-db
+          property: connectionString
+
+databases:
+  - name: lienzo-db
+    plan: free

@@ -80,7 +80,8 @@ const nodeSpecDoc = `Cada nodo: { type: ${NODE_TYPES.join('|')}, name?, x?, y?, 
 Las coordenadas x/y son RELATIVAS al padre. children solo en FRAME/GROUP.
 Props comunes: rotation, opacity(0-1), visible, locked, fill (color CSS o gradiente CSS, ej "#fff", "linear-gradient(...)"), stroke, strokeWidth, cornerRadius, shadow (CSS box-shadow, ej "0 4px 12px rgba(0,0,0,.15)").
 FRAME/GROUP: clipsContent. TEXT: text, fontSize, fontFamily, fontWeight(100-900), lineHeight(multiplicador), letterSpacing, textAlign(left|center|right), verticalAlign(top|middle|bottom), italic, underline (el color del texto es fill).
-IMAGE: src (URL https o data:), fit(cover|contain|fill). LINE: va de (0,0) a (width,height), usa stroke/strokeWidth.`;
+IMAGE: src (URL https o data:), fit(cover|contain|fill). LINE: va de (0,0) a (width,height), usa stroke/strokeWidth.
+Prototipo: link = id del FRAME de primer nivel al que lleva al tocarlo (o "back" para volver), transition = instant|dissolve|slide. Para quitar una conexión, link: null.`;
 
 function buildServer() {
   const server = new McpServer({ name: 'lienzo', version: '1.1.0' }, {

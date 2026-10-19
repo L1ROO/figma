@@ -28,7 +28,7 @@ const ALLOWED_PROPS = new Set([
   'name', 'x', 'y', 'width', 'height', 'rotation', 'opacity', 'visible', 'locked',
   'fill', 'stroke', 'strokeWidth', 'cornerRadius', 'clipsContent', 'shadow',
   'text', 'fontSize', 'fontFamily', 'fontWeight', 'lineHeight', 'letterSpacing',
-  'textAlign', 'verticalAlign', 'italic', 'underline', 'src', 'fit',
+  'textAlign', 'verticalAlign', 'italic', 'underline', 'src', 'fit', 'link', 'transition',
 ]);
 
 const ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';

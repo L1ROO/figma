@@ -188,16 +188,35 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round
 .ov-marquee { fill: rgba(35, 71, 245, .08); stroke: var(--accent); stroke-width: 1; }
 .ov-guide { stroke: #ff2d75; stroke-width: 1; }
 
+.ov-link { fill: none; stroke: var(--accent); stroke-width: 2; }
+.ov-link-src { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.ov-link-dot { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
+.ov-link-label { fill: var(--accent); stroke: none; font: 600 11px var(--ui); }
+
+/* Modo Presentar */
+.player { position: fixed; inset: 0; z-index: 40; background: #18191c; display: flex; flex-direction: column; color: #e9eaee; }
+.player-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); }
+.player-title { font-weight: 500; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-btn { border: 1px solid #3a3c42; background: #232428; color: #e9eaee; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.player-btn:hover { background: #2d2f34; }
+.player-stage { flex: 1; overflow: auto; display: flex; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.player-screen { position: relative; margin: auto; overflow: hidden; flex: none; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #fff; }
+.player-screen > .node { position: absolute; }
+.player .hotspot { animation: hotspot .7s ease-out; }
+@keyframes hotspot { from { box-shadow: 0 0 0 2px rgba(91,120,255,.9), inset 0 0 0 999px rgba(91,120,255,.25); } to { box-shadow: 0 0 0 2px rgba(91,120,255,0); } }
+
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50; max-width: 90vw; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---------- Pantallas chicas ---------- */
 @media (max-width: 900px) {
+  .player-stage { padding: 8px; }
   #editor { grid-template-columns: 1fr; grid-template-rows: 48px 1fr auto; }
   .panel.left { display: none; }
   .panel.right { grid-row: 3; max-height: 38vh; border-left: 0; border-top: 1px solid var(--line); }
   .doc-name { width: 120px; }
   #exportBtn, #importBtn { display: none; }
+  #presentBtn { padding: 6px 9px; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
