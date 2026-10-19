@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lienzo</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='3' y='3' width='26' height='26' rx='7' fill='%232347F5'/><rect x='9' y='9' width='9' height='9' rx='2' fill='white'/><circle cx='20' cy='21' r='4.5' fill='white' opacity='.75'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Pantalla de acceso -->
+  <section id="login" class="screen" hidden>
+    <form id="loginForm" class="login-card">
+      <div class="brand"><span class="logo"></span>Lienzo</div>
+      <label for="tokenInput">Clave de acceso</label>
+      <input id="tokenInput" type="password" autocomplete="current-password" placeholder="ACCESS_TOKEN de Render">
+      <button type="submit" class="btn primary">Entrar</button>
+      <p id="loginError" class="error" hidden>Esa clave no es correcta.</p>
+    </form>
+  </section>
+
+  <!-- Lista de archivos -->
+  <section id="home" class="screen" hidden>
+    <header class="home-head">
+      <div class="brand"><span class="logo"></span>Lienzo</div>
+      <button id="newDocBtn" class="btn primary">Nuevo diseño</button>
+    </header>
+    <main class="home-main">
+      <h1>Tus diseños</h1>
+      <ul id="docList" class="doc-list"></ul>
+      <div class="mcp-box">
+        <h2>Conectar Claude</h2>
+        <p>En Claude, andá a Configuración → Conectores → Agregar conector personalizado y pegá esta URL:</p>
+        <div class="copy-row"><code id="mcpUrlHome"></code><button class="btn" data-copy="mcpUrlHome">Copiar</button></div>
+      </div>
+    </main>
+  </section>
+
+  <!-- Editor -->
+  <section id="editor" class="screen" hidden>
+    <header class="topbar">
+      <div class="topbar-left">
+        <a href="/" class="icon-btn" title="Volver a tus diseños" aria-label="Volver">
+          <svg viewBox="0 0 20 20"><path d="M12 4 6 10l6 6" /></svg>
+        </a>
+        <input id="docName" class="doc-name" aria-label="Nombre del documento">
+      </div>
+      <nav class="tools" id="tools" aria-label="Herramientas">
+        <button data-tool="select" title="Mover (V)"><svg viewBox="0 0 20 20"><path d="M5 3l10 6.5-4.5 1L8.5 15z" /></svg></button>
+        <button data-tool="hand" title="Mano (H / espacio)"><svg viewBox="0 0 20 20"><path d="M6 10V5.5a1.2 1.2 0 0 1 2.4 0V9m0-4.5V4a1.2 1.2 0 0 1 2.4 0v5m0-4a1.2 1.2 0 0 1 2.4 0v5m0-3a1.2 1.2 0 0 1 2.4 0V12a5 5 0 0 1-5 5h-1a5 5 0 0 1-4-2L3.5 12a1.3 1.3 0 0 1 2-1.6L6 11" /></svg></button>
+        <span class="sep"></span>
+        <button data-tool="FRAME" title="Frame (F)"><svg viewBox="0 0 20 20"><path d="M6 2v16M14 2v16M2 6h16M2 14h16" /></svg></button>
+        <button data-tool="RECTANGLE" title="Rectángulo (R)"><svg viewBox="0 0 20 20"><rect x="3.5" y="4.5" width="13" height="11" rx="1" /></svg></button>
+        <button data-tool="ELLIPSE" title="Elipse (O)"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.5" /></svg></button>
+        <button data-tool="LINE" title="Línea (L)"><svg viewBox="0 0 20 20"><path d="M4 16 16 4" /></svg></button>
+        <button data-tool="TEXT" title="Texto (T)"><svg viewBox="0 0 20 20"><path d="M4 5V3.5h12V5M10 3.5v13M7.5 16.5h5" /></svg></button>
+        <button data-tool="IMAGE" title="Imagen (I)"><svg viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="12" rx="1.5" /><circle cx="7.5" cy="8.5" r="1.5" /><path d="m4 15 4.5-4.5 3 3 2-2L17 15" /></svg></button>
+      </nav>
+      <div class="topbar-right">
+        <span id="liveBadge" class="live" hidden></span>
+        <button id="zoomBtn" class="zoom-btn" title="Ajustar a pantalla (Shift+1)">100%</button>
+        <button id="importBtn" class="btn" title="Importar un SVG (por ejemplo, exportado de Figma) como capas editables">Importar</button>
+        <button id="exportBtn" class="btn" title="Descargar SVG de la selección o la página">Exportar</button>
+      </div>
+    </header>
+
+    <aside class="panel left" id="leftPanel">
+      <div class="panel-section">
+        <div class="section-head"><h3>Páginas</h3><button id="addPageBtn" class="icon-btn small" title="Agregar página" aria-label="Agregar página"><svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" /></svg></button></div>
+        <ul id="pageList" class="page-list"></ul>
+      </div>
+      <div class="panel-section grow">
+        <div class="section-head"><h3>Capas</h3></div>
+        <ul id="layerTree" class="layer-tree"></ul>
+      </div>
+    </aside>
+
+    <main id="viewport" class="viewport" tabindex="-1">
+      <div id="world" class="world"></div>
+      <svg id="overlay" class="overlay"></svg>
+      <div id="labels" class="labels"></div>
+    </main>
+
+    <aside class="panel right" id="props"></aside>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </section>
+
+  <input id="fileInput" type="file" accept="image/*" hidden>
+  <input id="svgInput" type="file" accept=".svg,image/svg+xml" multiple hidden>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
