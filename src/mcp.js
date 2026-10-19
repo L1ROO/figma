@@ -81,7 +81,8 @@ Las coordenadas x/y son RELATIVAS al padre. children solo en FRAME/GROUP.
 Props comunes: rotation, opacity(0-1), visible, locked, fill (color CSS o gradiente CSS, ej "#fff", "linear-gradient(...)"), stroke, strokeWidth, cornerRadius, shadow (CSS box-shadow, ej "0 4px 12px rgba(0,0,0,.15)").
 FRAME/GROUP: clipsContent. TEXT: text, fontSize, fontFamily, fontWeight(100-900), lineHeight(multiplicador), letterSpacing, textAlign(left|center|right), verticalAlign(top|middle|bottom), italic, underline (el color del texto es fill).
 IMAGE: src (URL https o data:), fit(cover|contain|fill). LINE: va de (0,0) a (width,height), usa stroke/strokeWidth.
-Prototipo: link = id del FRAME de primer nivel al que lleva al tocarlo (o "back" para volver), transition = instant|dissolve|slide. Para quitar una conexión, link: null.`;
+Prototipo: interactions = [{ trigger: tap|hover|press|delay, delay (ms, si trigger=delay), action: navigate|back|overlay|swap|close|url|scrollTo|style, target (id de FRAME de primer nivel; para scrollTo cualquier capa de la pantalla), url, transition: instant|dissolve|slide|slideUp, position: center|top|bottom|left|right (overlay), dim (bool), closeOnOutside (bool), style: { fill, stroke, opacity, shadow, cornerRadius, text } (para action=style; con hover/press se revierte solo) }]. Ej. botón: [{ "trigger":"tap","action":"navigate","target":"<frameId>","transition":"slide" }, { "trigger":"hover","action":"style","style":{"fill":"#1A36C9"} }]. interactions: null las quita.
+Scroll: en un FRAME de primer nivel, viewportHeight = alto visible (ej 844) para que se desplace; en sus hijos directos, fixed: true los deja fijos (header, barra de pestañas).`;
 
 function buildServer() {
   const server = new McpServer({ name: 'lienzo', version: '1.1.0' }, {

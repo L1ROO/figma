@@ -189,9 +189,12 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round
 .ov-guide { stroke: #ff2d75; stroke-width: 1; }
 
 .ov-link { fill: none; stroke: var(--accent); stroke-width: 2; }
+.ov-link.dashed { stroke-dasharray: 6 4; }
 .ov-link-src { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .ov-link-dot { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
-.ov-link-label { fill: var(--accent); stroke: none; font: 600 11px var(--ui); }
+.ov-link-label { fill: var(--accent); stroke: var(--canvas); stroke-width: 3px; paint-order: stroke; font: 600 11px var(--ui); }
+.ov-fold { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 5 4; opacity: .7; }
+.ov-fold-label { fill: var(--accent); stroke: none; font: 500 10px var(--ui); opacity: .8; }
 
 /* Modo Presentar */
 .player { position: fixed; inset: 0; z-index: 40; background: #18191c; display: flex; flex-direction: column; color: #e9eaee; }
@@ -201,9 +204,25 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round
 .player-btn:hover { background: #2d2f34; }
 .player-stage { flex: 1; overflow: auto; display: flex; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
 .player-screen { position: relative; margin: auto; overflow: hidden; flex: none; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #fff; }
-.player-screen > .node { position: absolute; }
+.player-device { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
+.player-scroll { position: absolute; inset: 0; overflow-x: hidden; scrollbar-width: none; overscroll-behavior: contain; }
+.player-scroll::-webkit-scrollbar { display: none; }
+.player-scroll > .node, .player-fixed > .node, .overlay-box { position: absolute; }
+.player-fixed, .player-overlays { position: absolute; inset: 0; pointer-events: none; }
+.player-fixed > .node { pointer-events: auto; }
+.player-overlay { position: absolute; inset: 0; pointer-events: auto; }
+.player-overlay.dim { background: rgba(0, 0, 0, .45); }
+.ix-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px; display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); position: relative; }
+.ix-card .ix-del { position: absolute; top: 4px; right: 4px; }
+.ix-title { font-weight: 600; padding-right: 24px; }
 .player .hotspot { animation: hotspot .7s ease-out; }
 @keyframes hotspot { from { box-shadow: 0 0 0 2px rgba(91,120,255,.9), inset 0 0 0 999px rgba(91,120,255,.25); } to { box-shadow: 0 0 0 2px rgba(91,120,255,0); } }
+
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 4px; width: 280px; box-shadow: 0 8px 28px rgba(0,0,0,.14); }
+.menu button { display: grid; gap: 2px; width: 100%; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.menu button:hover { background: var(--bg-2); }
+.menu button span { color: var(--muted); }
 
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50; max-width: 90vw; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -215,7 +234,7 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round
   .panel.left { display: none; }
   .panel.right { grid-row: 3; max-height: 38vh; border-left: 0; border-top: 1px solid var(--line); }
   .doc-name { width: 120px; }
-  #exportBtn, #importBtn { display: none; }
+  #importBtn, .menu-wrap { display: none; }
   #presentBtn { padding: 6px 9px; }
 }
 @media (prefers-reduced-motion: reduce) {

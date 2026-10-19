@@ -29,6 +29,7 @@ const ALLOWED_PROPS = new Set([
   'fill', 'stroke', 'strokeWidth', 'cornerRadius', 'clipsContent', 'shadow',
   'text', 'fontSize', 'fontFamily', 'fontWeight', 'lineHeight', 'letterSpacing',
   'textAlign', 'verticalAlign', 'italic', 'underline', 'src', 'fit', 'link', 'transition',
+  'interactions', 'fixed', 'viewportHeight',
 ]);
 
 const ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -74,7 +75,59 @@ function cleanProps(props) {
   if ('height' in out) out.height = Math.max(0, out.height);
   if ('opacity' in out) out.opacity = Math.min(1, Math.max(0, out.opacity));
   if ('text' in out) out.text = String(out.text);
+  if ('viewportHeight' in out && out.viewportHeight !== null) {
+    const n = Number(out.viewportHeight);
+    out.viewportHeight = Number.isFinite(n) && n > 0 ? n : null;
+  }
+  if ('fixed' in out) out.fixed = Boolean(out.fixed);
+  if ('interactions' in out) out.interactions = cleanInteractions(out.interactions);
   return out;
+}
+
+// Interacciones de prototipo:
+// { trigger: tap|hover|press|delay, delay (ms), action: navigate|back|overlay|swap|close|url|scrollTo|style,
+//   target (id), url, transition: instant|dissolve|slide|slideUp, position: center|top|bottom|left|right,
+//   dim (bool), closeOnOutside (bool), style: { fill, stroke, opacity, shadow, ... } }
+export const TRIGGERS = ['tap', 'hover', 'press', 'delay'];
+export const ACTIONS = ['navigate', 'back', 'overlay', 'swap', 'close', 'url', 'scrollTo', 'style'];
+export const TRANSITIONS = ['instant', 'dissolve', 'slide', 'slideUp'];
+const STYLE_KEYS = ['fill', 'stroke', 'strokeWidth', 'opacity', 'shadow', 'cornerRadius', 'text', 'fontWeight', 'width', 'height', 'x', 'y'];
+
+function cleanInteractions(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  for (const it of list.slice(0, 20)) {
+    if (!it || typeof it !== 'object') continue;
+    const trigger = TRIGGERS.includes(it.trigger) ? it.trigger : 'tap';
+    const action = ACTIONS.includes(it.action) ? it.action : 'navigate';
+    const ix = { trigger, action };
+    if (trigger === 'delay') ix.delay = Math.max(0, Number(it.delay) || 800);
+    if (['navigate', 'overlay', 'swap', 'scrollTo'].includes(action) && it.target) ix.target = String(it.target);
+    if (action === 'url') ix.url = String(it.url || '');
+    if (['navigate', 'back', 'overlay', 'swap'].includes(action)) ix.transition = TRANSITIONS.includes(it.transition) ? it.transition : 'dissolve';
+    if (action === 'overlay' || action === 'swap') {
+      ix.position = ['center', 'top', 'bottom', 'left', 'right'].includes(it.position) ? it.position : 'center';
+      ix.dim = it.dim !== false;
+      ix.closeOnOutside = it.closeOnOutside !== false;
+    }
+    if (action === 'style') {
+      ix.style = {};
+      for (const k of STYLE_KEYS) if (it.style && k in it.style) ix.style[k] = it.style[k];
+    }
+    out.push(ix);
+  }
+  return out.length ? out : null;
+}
+
+// Interacciones de un nodo, incluyendo el formato viejo (link/transition).
+export function interactionsOf(node) {
+  const list = Array.isArray(node?.interactions) ? [...node.interactions] : [];
+  if (node?.link && !list.some((i) => i.trigger === 'tap')) {
+    list.unshift(node.link === 'back'
+      ? { trigger: 'tap', action: 'back', transition: node.transition || 'dissolve' }
+      : { trigger: 'tap', action: 'navigate', target: node.link, transition: node.transition || 'dissolve' });
+  }
+  return list;
 }
 
 function assertContainer(doc, parentId) {

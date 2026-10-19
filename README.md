@@ -10,7 +10,7 @@ Editor de diseño tipo Figma, hecho para que Claude pueda leer y editar tus dise
 - Panel de capas con arrastre para reordenar o meter dentro de frames, ocultar y bloquear.
 - Panel de propiedades: posición, tamaño, rotación, radio, opacidad, relleno (colores o gradientes CSS), borde, sombra, tipografía (cualquier fuente de Google Fonts).
 - Varias páginas por diseño, deshacer y rehacer, exportar a SVG.
-- Prototipos: conectá botones con pantallas y probalo con **Presentar**, también desde el celular.
+- Prototipos con tocar, hover, presionar y temporizador; navegar, overlays, links, scroll y estilos. Se prueban con **Presentar**, también desde el celular, y se pasan a Figma con el plugin incluido.
 - Servidor MCP con 14 herramientas, incluida una captura PNG para que Claude vea cómo quedó.
 
 ## Traer diseños de Figma (sin gastar tokens)
@@ -23,12 +23,31 @@ La conversión la hace la página: frames, textos, rectángulos, elipses, línea
 
 ## Prototipos
 
-1. Seleccioná el botón (o cualquier capa) y en el panel derecho, en **Prototipo → Al tocar**, elegí la pantalla a la que lleva o **Volver atrás**.
-2. Elegí la animación: fundido, deslizar o ninguna. En el lienzo aparece una flecha hasta la pantalla de destino.
-3. Tocá **Presentar** (o Shift+Enter). Arranca desde el frame seleccionado o desde el primero de la página.
-4. En el modo Presentar, tocar fuera de un botón muestra en azul qué zonas se pueden tocar. Esc sale y R vuelve al inicio.
+Seleccioná una capa y en el panel derecho, en **Prototipo**, tocá **+** para agregar interacciones. Cada una tiene:
 
-La URL del modo Presentar se puede abrir en el celular para probarlo ahí (pide la misma clave). Claude también puede armar las conexiones por MCP con `update_nodes` y la propiedad `link`.
+- **Cuándo:** al tocar, al pasar el mouse, mientras se presiona, o después de un tiempo.
+- **Acción:** ir a pantalla, volver atrás, abrir encima (overlay: menús, hojas, popups), reemplazar overlay, cerrar overlay, abrir un link, desplazar hasta una capa, o cambiar estilo (color, borde, opacidad, radio, sombra o texto; con hover y presionar vuelve solo).
+- **Animación:** fundido, deslizar, subir desde abajo o ninguna. Los overlays además tienen posición, fondo oscuro y cierre al tocar afuera.
+
+Para que una pantalla haga scroll, seleccioná el frame y poné su **Alto visible** (por ejemplo 844). En el lienzo aparece una línea punteada en ese alto. Marcá **Fijo al hacer scroll** en los headers o barras de pestañas.
+
+Tocá **Presentar** (o Shift+Enter) para probarlo. Tocar fuera de un botón muestra en azul lo que se puede tocar. Esc cierra el overlay o sale y R vuelve al inicio. La URL del modo Presentar se puede abrir en el celular.
+
+## Pasar a Figma con el prototipo
+
+Copiar y pegar en Figma no puede llevar las conexiones: el SVG no las guarda. Para eso está el plugin de la carpeta `figma-plugin`, que crea capas reales de Figma con sus interacciones.
+
+**Instalarlo (una sola vez, necesita la app de escritorio de Figma):**
+1. Descargá la carpeta `figma-plugin` a tu compu.
+2. En Figma de escritorio: menú **Plugins → Development → Import plugin from manifest…** y elegí `figma-plugin/manifest.json`.
+
+**Usarlo:**
+1. En Lienzo: **Exportar → Para Figma, con prototipo**. Se copia un link.
+2. En Figma: **Plugins → Development → Lienzo → Figma**, pegá el link y tocá **Importar a Figma**.
+
+Qué se pasa: frames, textos (con su fuente si está en Figma), rectángulos, elipses, líneas, degradados, sombras, imágenes, íconos SVG como vectores editables, las conexiones (navegar, volver, overlays, cerrar, links, desplazar, después de un tiempo), scroll vertical y elementos fijos. Los cambios de estilo con hover, presionar o tocar se convierten en un componente con dos variantes y la interacción "Change to", como se hace en Figma; esos componentes quedan a la derecha del diseño.
+
+Qué hay que retocar a mano en Figma: la posición y el fondo oscuro de los overlays (Figma no deja que un plugin los configure; por defecto quedan centrados).
 
 ## Subirlo a Render
 
@@ -81,4 +100,4 @@ Abrí http://localhost:3000. Sin `ACCESS_TOKEN` no pide clave y el MCP queda en 
 
 ## Lo que todavía no tiene
 
-Auto layout, componentes y variantes, herramienta pluma (vectores), interacciones avanzadas de prototipo (hover, overlays, scroll fijo) e importar archivos `.fig`. La captura del MCP aproxima los gradientes a color sólido y usa una tipografía sans genérica; en el navegador se ve todo con la fuente real.
+Auto layout, componentes y variantes editables en Lienzo, herramienta pluma (vectores) e importar archivos `.fig`. La captura del MCP aproxima los gradientes a color sólido y usa una tipografía sans genérica; en el navegador se ve todo con la fuente real.

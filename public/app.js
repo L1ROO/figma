@@ -1,4 +1,4 @@
-import { applyOp, toSpec, newId, CONTAINER_TYPES, absolutePosition } from '/shared/doc.js';
+import { applyOp, toSpec, newId, CONTAINER_TYPES, absolutePosition, interactionsOf } from '/shared/doc.js';
 import { importSvg, loadSvgFonts } from '/import-svg.js';
 import { startPlayer, refreshPlayer, playerOpen, stopPlayer } from '/player.js';
 
@@ -500,23 +500,29 @@ function renderOverlay() {
     const r = rectScreen(state.createPreview);
     parts.push(`<rect class="ov-sel" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`);
   }
+  // Línea del alto visible (scroll) en pantallas
+  for (const id of N(state.pageId).children) {
+    const f = N(id);
+    if (!f || f.type !== 'FRAME' || !f.viewportHeight || f.viewportHeight >= f.height || f.visible === false) continue;
+    const a = toScreen(f.x, f.y + f.viewportHeight), b = toScreen(f.x + f.width, f.y + f.viewportHeight);
+    parts.push(`<line class="ov-fold" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><text class="ov-fold-label" x="${b.x + 6}" y="${b.y + 3}">Alto visible</text>`);
+  }
   // Conexiones de prototipo de lo seleccionado (y lo que tiene adentro)
-  const linked = new Set();
-  const collect = (id) => { const n = N(id); if (!n) return; if (n.link) linked.add(id); (n.children || []).forEach(collect); };
+  const linked = [];
+  const collect = (id) => { const n = N(id); if (!n) return; for (const i of interactionsOf(n)) linked.push([n, i]); (n.children || []).forEach(collect); };
   sel.forEach(collect);
-  if (linked.size && !drag) {
+  if (linked.length && !drag) {
     parts.push(`<defs><marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent);stroke:none"/></marker></defs>`);
-    for (const id of linked) {
-      const n = N(id);
-      const a = rectScreen(absRect(id));
+    const labelCount = new Map();
+    for (const [n, i] of linked) {
+      const a = rectScreen(absRect(n.id));
       parts.push(`<rect class="ov-link-src" x="${a.x}" y="${a.y}" width="${a.w}" height="${a.h}"/>`);
-      if (n.link === 'back') {
-        parts.push(`<text class="ov-link-label" x="${a.x + a.w + 6}" y="${a.y + a.h / 2 + 4}">← Volver</text>`);
-        continue;
-      }
-      const t = N(n.link);
-      if (!t || pageOfNode(t.id) !== state.pageId) {
-        parts.push(`<text class="ov-link-label" x="${a.x + a.w + 6}" y="${a.y + a.h / 2 + 4}">→ ${esc(t ? t.name : 'destino borrado')}</text>`);
+      const t = i.target && N(i.target);
+      const drawable = t && ['navigate', 'overlay', 'swap'].includes(i.action) && pageOfNode(t.id) === state.pageId && t.parentId === state.pageId;
+      if (!drawable) {
+        const k = labelCount.get(n.id) || 0;
+        labelCount.set(n.id, k + 1);
+        parts.push(`<text class="ov-link-label" x="${a.x + a.w + 6}" y="${a.y + 12 + k * 14}">${esc(ixLabel(i))}</text>`);
         continue;
       }
       const b = rectScreen(absRect(t.id));
@@ -524,7 +530,7 @@ function renderOverlay() {
       const toLeft = b.x >= x1;
       const x2 = toLeft ? b.x : b.x + b.w, y2 = b.y + Math.min(b.h / 2, 60 * state.cam.z);
       const dx = Math.max(40, Math.abs(x2 - x1) / 2);
-      parts.push(`<path class="ov-link" d="M${x1} ${y1} C ${x1 + dx} ${y1}, ${toLeft ? x2 - dx : x2 + dx} ${y2}, ${x2} ${y2}" marker-end="url(#arrowhead)"/>`);
+      parts.push(`<path class="ov-link${i.action !== 'navigate' ? ' dashed' : ''}" d="M${x1} ${y1} C ${x1 + dx} ${y1}, ${toLeft ? x2 - dx : x2 + dx} ${y2}, ${x2} ${y2}" marker-end="url(#arrowhead)"/>`);
       parts.push(`<circle class="ov-link-dot" cx="${x1}" cy="${y1}" r="4"/>`);
     }
   }
@@ -1685,30 +1691,109 @@ function renderProps() {
     html.push(`<div class="prop-group"><h4>Sombra ${sh ? `<button class="add-link" data-action="clear" data-prop="shadow" title="Quitar">−</button>` : `<button class="add-link" data-action="add" data-prop="shadow" title="Agregar">+</button>`}</h4>
       ${sh ? `<label class="field" title="Formato CSS: x y desenfoque color"><input data-key="shadow" data-kind="str" value="${esc(shown(sh))}"></label>` : ''}</div>`);
   }
-  if (nodes.length === 1) {
-    const n = nodes[0];
-    const myTop = topFrameOf(n.id);
-    const frames = [];
-    for (const pid of N(state.doc.rootId).children) {
-      for (const fid of N(pid).children) {
-        const f = N(fid);
-        if (f?.type === 'FRAME' && fid !== myTop) frames.push({ id: fid, label: pid === state.pageId ? f.name : `${N(pid).name} / ${f.name}` });
-      }
-    }
-    html.push(`<div class="prop-group"><h4>Prototipo</h4>
-      <label class="field" title="Al tocar esta capa en modo Presentar"><span>Al tocar</span><select data-key="link" data-kind="link">
-        <option value="">Nada</option>
-        <option value="back" ${n.link === 'back' ? 'selected' : ''}>Volver atrás</option>
-        ${frames.map((f) => `<option value="${f.id}" ${n.link === f.id ? 'selected' : ''}>Ir a ${esc(f.label)}</option>`).join('')}
-      </select></label>
-      ${n.link ? `<label class="field"><span>Animación</span><select data-key="transition" data-kind="str">
-        ${[['dissolve', 'Fundido'], ['slide', 'Deslizar'], ['instant', 'Sin animación']].map(([v, l]) => `<option value="${v}" ${(n.transition || 'dissolve') === v ? 'selected' : ''}>${l}</option>`).join('')}
-      </select></label>` : ''}
-      <button class="btn" data-action="present">Presentar</button>
-    </div>`);
-  }
+  if (nodes.length === 1) html.push(prototypePanel(nodes[0]));
   html.push(`<div class="prop-group"><p class="hint">Doble clic para entrar en un grupo · Ctrl/⌘+clic selecciona directo · Shift+1 ajusta a pantalla</p></div>`);
   el.innerHTML = html.join('');
+}
+
+// ---------- Panel de prototipo ----------
+const TRIGGER_LABEL = { tap: 'Al tocar', hover: 'Al pasar el mouse', press: 'Mientras se presiona', delay: 'Después de un tiempo' };
+const ACTION_LABEL = { navigate: 'Ir a pantalla', back: 'Volver atrás', overlay: 'Abrir encima (overlay)', swap: 'Reemplazar overlay', close: 'Cerrar overlay', url: 'Abrir link', scrollTo: 'Desplazar hasta', style: 'Cambiar estilo' };
+const TRANS_LABEL = { dissolve: 'Fundido', slide: 'Deslizar', slideUp: 'Subir desde abajo', instant: 'Sin animación' };
+
+function ixLabel(i) {
+  const t = i.target && N(i.target);
+  const what = { navigate: `→ ${t?.name || '?'}`, back: '← Volver', overlay: `⧉ ${t?.name || '?'}`, swap: `⇄ ${t?.name || '?'}`, close: '✕ Cerrar overlay', url: `↗ ${i.url || 'link'}`, scrollTo: `↓ ${t?.name || '?'}`, style: 'estilo' }[i.action];
+  const when = { tap: '', hover: 'hover: ', press: 'presionar: ', delay: `${(i.delay || 800) / 1000}s: ` }[i.trigger];
+  return when + what;
+}
+
+function topFrames(excludeId) {
+  const out = [];
+  for (const pid of N(state.doc.rootId).children) {
+    for (const fid of N(pid).children) {
+      const f = N(fid);
+      if (f?.type === 'FRAME' && fid !== excludeId) out.push({ id: fid, label: pid === state.pageId ? f.name : `${N(pid).name} / ${f.name}` });
+    }
+  }
+  return out;
+}
+
+function descendants(id, out = []) {
+  for (const c of N(id)?.children || []) { const n = N(c); if (n) { out.push(n); descendants(c, out); } }
+  return out;
+}
+
+const opt = (v, label, cur) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(label)}</option>`;
+
+function prototypePanel(n) {
+  const list = interactionsOf(n);
+  const myTop = topFrameOf(n.id);
+  const isTop = myTop === n.id && n.type === 'FRAME';
+  const frames = topFrames(myTop);
+  const cards = list.map((i, k) => {
+    let target = '';
+    if (['navigate', 'overlay', 'swap'].includes(i.action)) {
+      target = `<label class="field"><span>Destino</span><select data-ix="${k}" data-ixkey="target"><option value="">Elegí…</option>${frames.map((f) => opt(f.id, f.label, i.target)).join('')}</select></label>`;
+    } else if (i.action === 'scrollTo') {
+      const opts = descendants(myTop || n.id).map((d) => opt(d.id, d.name, i.target)).join('');
+      target = `<label class="field"><span>Hasta</span><select data-ix="${k}" data-ixkey="target"><option value="">Elegí…</option>${opts}</select></label>`;
+    } else if (i.action === 'url') {
+      target = `<label class="field"><span>URL</span><input data-ix="${k}" data-ixkey="url" value="${esc(i.url || '')}" placeholder="https://…"></label>`;
+    }
+    const trans = ['navigate', 'back', 'overlay', 'swap'].includes(i.action)
+      ? `<label class="field"><span>Animación</span><select data-ix="${k}" data-ixkey="transition">${Object.entries(TRANS_LABEL).map(([v, l]) => opt(v, l, i.transition || 'dissolve')).join('')}</select></label>` : '';
+    const overlay = i.action === 'overlay' || i.action === 'swap'
+      ? `<label class="field"><span>Posición</span><select data-ix="${k}" data-ixkey="position">${[['center', 'Centro'], ['bottom', 'Abajo'], ['top', 'Arriba'], ['left', 'Izquierda'], ['right', 'Derecha']].map(([v, l]) => opt(v, l, i.position || 'center')).join('')}</select></label>
+         <label class="check"><input type="checkbox" data-ix="${k}" data-ixkey="dim" ${i.dim !== false ? 'checked' : ''}> Oscurecer el fondo</label>
+         <label class="check"><input type="checkbox" data-ix="${k}" data-ixkey="closeOnOutside" ${i.closeOnOutside !== false ? 'checked' : ''}> Cerrar al tocar afuera</label>` : '';
+    const delay = i.trigger === 'delay'
+      ? `<label class="field"><span>Esperar</span><input data-ix="${k}" data-ixkey="delay" inputmode="numeric" value="${(i.delay || 800)}"><span>ms</span></label>` : '';
+    const st = i.style || {};
+    const style = i.action === 'style'
+      ? `<p class="hint">${i.trigger === 'tap' ? 'Cada toque prende o apaga estos cambios.' : 'Se aplica mientras dure la acción y vuelve solo.'}</p>
+         <div class="field"><span>Relleno</span><input type="color" data-ix="${k}" data-ixstyle="fill" value="${toHex(st.fill || n.fill || '#000000')}" aria-label="Color"><input data-ix="${k}" data-ixstyle="fill" value="${esc(st.fill || '')}" placeholder="Igual"></div>
+         <div class="field"><span>Borde</span><input type="color" data-ix="${k}" data-ixstyle="stroke" value="${toHex(st.stroke || n.stroke || '#000000')}" aria-label="Color de borde"><input data-ix="${k}" data-ixstyle="stroke" value="${esc(st.stroke || '')}" placeholder="Igual"></div>
+         <div class="grid2"><label class="field"><span>Opac.</span><input data-ix="${k}" data-ixstyle="opacity" value="${st.opacity !== undefined ? Math.round(st.opacity * 100) : ''}" placeholder="Igual"><span>%</span></label>
+         <label class="field"><span>Radio</span><input data-ix="${k}" data-ixstyle="cornerRadius" value="${st.cornerRadius ?? ''}" placeholder="Igual"></label></div>
+         <label class="field" title="Sombra CSS"><span>Sombra</span><input data-ix="${k}" data-ixstyle="shadow" value="${esc(st.shadow || '')}" placeholder="Igual"></label>
+         ${n.type === 'TEXT' ? `<label class="field"><span>Texto</span><input data-ix="${k}" data-ixstyle="text" value="${esc(st.text ?? '')}" placeholder="Igual"></label>` : ''}` : '';
+    return `<div class="ix-card">
+      <div class="ix-title">${esc(ixLabel(i))}</div>
+      <button class="add-link ix-del" data-ixdel="${k}" title="Quitar interacción" aria-label="Quitar interacción">−</button>
+      <label class="field"><span>Cuándo</span><select data-ix="${k}" data-ixkey="trigger">${Object.entries(TRIGGER_LABEL).map(([v, l]) => opt(v, l, i.trigger)).join('')}</select></label>
+      ${delay}
+      <label class="field"><span>Acción</span><select data-ix="${k}" data-ixkey="action">${Object.entries(ACTION_LABEL).map(([v, l]) => opt(v, l, i.action)).join('')}</select></label>
+      ${target}${trans}${overlay}${style}
+    </div>`;
+  }).join('');
+  const parent = N(n.parentId);
+  const scrollOpts = isTop
+    ? `<label class="field" title="Si la pantalla es más alta que esto, en Presentar se hace scroll"><span>Alto visible</span><input data-key="viewportHeight" data-kind="num" value="${n.viewportHeight ?? ''}" placeholder="Todo (${round(n.height)})"></label>
+       <p class="hint">Para que una pantalla larga se desplace, poné el alto del celular (por ejemplo 844).</p>` : '';
+  const fixedOpt = !isTop && parent && parent.id === myTop
+    ? `<label class="check"><input type="checkbox" data-key="fixed" data-kind="bool" ${n.fixed ? 'checked' : ''}> Fijo al hacer scroll</label>` : '';
+  return `<div class="prop-group"><h4>Prototipo <button class="add-link" data-action="add-ix" title="Agregar interacción">+</button></h4>
+    ${cards || '<p class="hint">Sin interacciones. Tocá + para agregar una.</p>'}
+    ${scrollOpts}${fixedOpt}
+    <button class="btn" data-action="present">Presentar</button>
+  </div>`;
+}
+
+// Guarda la lista completa de interacciones (y limpia el formato viejo link/transition)
+function saveInteractions(id, list) {
+  const n = N(id);
+  const props = { interactions: list.length ? list : null };
+  if (n.link !== undefined && n.link !== null) { props.link = null; props.transition = null; }
+  perform([{ op: 'update', id, props }]);
+}
+
+function updateIx(k, change) {
+  const id = state.selection[0];
+  const list = interactionsOf(N(id)).map((i) => ({ ...i, style: i.style ? { ...i.style } : undefined }));
+  if (!list[k]) return;
+  change(list[k]);
+  saveInteractions(id, list);
 }
 
 function pagePanel() {
@@ -1773,6 +1858,31 @@ $('#props').addEventListener('input', (e) => {
 });
 $('#props').addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset.ix !== undefined) {
+    const k = Number(t.dataset.ix);
+    if (t.dataset.ixstyle) {
+      const sk = t.dataset.ixstyle;
+      let v = t.type === 'checkbox' ? t.checked : t.value.trim();
+      updateIx(k, (i) => {
+        i.style = i.style || {};
+        if (v === '') delete i.style[sk];
+        else if (sk === 'opacity') i.style.opacity = clamp((evalNum(v) ?? 100) / 100, 0, 1);
+        else if (sk === 'cornerRadius') i.style.cornerRadius = evalNum(v) ?? 0;
+        else i.style[sk] = v;
+      });
+      t.blur();
+      return;
+    }
+    const f = t.dataset.ixkey;
+    const v = t.type === 'checkbox' ? t.checked : f === 'delay' ? (evalNum(t.value) ?? 800) : t.value;
+    updateIx(k, (i) => {
+      i[f] = v;
+      if (f === 'action' && v === 'style' && !i.style) i.style = {};
+      if (f === 'action' && ['navigate', 'overlay', 'swap', 'scrollTo'].includes(v)) i.target = '';
+    });
+    t.blur();
+    return;
+  }
   const key = t.dataset.key;
   if (!key) return;
   let v;
@@ -1816,6 +1926,22 @@ $('#props').addEventListener('click', (e) => {
   }
   if (b.dataset.action === 'replace-image') pickImage(null, state.selection[0]);
   if (b.dataset.action === 'present') present();
+  if (b.dataset.action === 'add-ix') {
+    const id = state.selection[0];
+    const n = N(id);
+    const firstOther = topFrames(topFrameOf(id))[0];
+    const list = interactionsOf(n);
+    list.push(n.type === 'FRAME' && n.id === topFrameOf(id)
+      ? { trigger: 'delay', delay: 1500, action: 'navigate', target: firstOther?.id || '', transition: 'dissolve' }
+      : { trigger: 'tap', action: 'navigate', target: firstOther?.id || '', transition: 'dissolve' });
+    saveInteractions(id, list);
+  }
+  if (b.dataset.ixdel !== undefined) {
+    const id = state.selection[0];
+    const list = interactionsOf(N(id));
+    list.splice(Number(b.dataset.ixdel), 1);
+    saveInteractions(id, list);
+  }
 });
 
 // ============================================================
@@ -1829,7 +1955,26 @@ $('#docName').addEventListener('change', (e) => {
 });
 $('#docName').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
 $('#zoomBtn').addEventListener('click', zoomToFit);
-$('#exportBtn').addEventListener('click', async () => {
+$('#exportBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const m = $('#exportMenu');
+  m.hidden = !m.hidden;
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('#exportMenu')) $('#exportMenu').hidden = true; });
+$('#exportMenu').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-export]');
+  if (!b) return;
+  $('#exportMenu').hidden = true;
+  if (b.dataset.export === 'svg') exportSvg();
+  if (b.dataset.export === 'figma') {
+    const link = `${location.origin}/api/docs/${state.docId}/export${state.token ? '?token=' + encodeURIComponent(state.token) : ''}`;
+    navigator.clipboard?.writeText(link).then(
+      () => toast('Link copiado. Abrí el plugin "Lienzo → Figma" en Figma y pegalo ahí.', 5000),
+      () => prompt('Copiá este link y pegalo en el plugin de Figma:', link),
+    );
+  }
+});
+async function exportSvg() {
   const id = state.selection.length === 1 ? state.selection[0] : state.pageId;
   const res = await fetch(`/api/docs/${state.docId}/svg/${id}`, { headers: { 'x-access-token': state.token } });
   if (!res.ok) return toast('No se pudo exportar');
@@ -1839,7 +1984,7 @@ $('#exportBtn').addEventListener('click', async () => {
   a.download = `${N(id).name || 'diseño'}.svg`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-});
+}
 
 // ============================================================
 // Abrir el editor

@@ -1,0 +1,110 @@
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 12px/1.45 Inter, system-ui, sans-serif; margin: 0; padding: 14px; color: var(--figma-color-text, #222); background: var(--figma-color-bg, #fff); }
+  h1 { font-size: 13px; margin: 0 0 4px; }
+  p { margin: 0 0 10px; color: var(--figma-color-text-secondary, #666); }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  input { width: 100%; box-sizing: border-box; padding: 7px 8px; border: 1px solid var(--figma-color-border, #ddd); border-radius: 5px; background: var(--figma-color-bg, #fff); color: inherit; font: inherit; }
+  input:focus { outline: 2px solid var(--figma-color-border-brand-strong, #0d99ff); outline-offset: -1px; }
+  button { margin-top: 10px; width: 100%; padding: 8px; border: 0; border-radius: 6px; background: var(--figma-color-bg-brand, #0d99ff); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { margin-top: 10px; min-height: 36px; white-space: pre-wrap; }
+  .err { color: var(--figma-color-text-danger, #d33); }
+</style>
+<h1>Traer un diseño de Lienzo</h1>
+<p>En Lienzo tocá Exportar → Para Figma, con prototipo, y pegá el link acá.</p>
+<label for="link">Link de Lienzo</label>
+<input id="link" placeholder="https://tu-app.onrender.com/api/docs/…/export?token=…" autocomplete="off">
+<button id="go">Importar a Figma</button>
+<div id="status" role="status"></div>
+<script>
+const $ = (s) => document.querySelector(s);
+const status = (t, err) => { $('#status').textContent = t; $('#status').className = err ? 'err' : ''; };
+
+onmessage = (e) => {
+  const m = e.data.pluginMessage;
+  if (!m) return;
+  if (m.type === 'init' && m.link) $('#link').value = m.link;
+  if (m.type === 'progress') status(m.text);
+  if (m.type === 'done') { status(m.text); $('#go').disabled = false; }
+  if (m.type === 'error') { status('Error: ' + m.message, true); $('#go').disabled = false; }
+};
+
+// --- Imágenes: el plugin necesita PNG/JPG en bytes, o el texto del SVG ---
+function dataToText(url) {
+  const comma = url.indexOf(',');
+  const meta = url.slice(0, comma), data = url.slice(comma + 1);
+  if (meta.includes(';base64')) {
+    const bin = atob(data);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  return decodeURIComponent(data);
+}
+function sizedSvg(text, w, h) {
+  const d = new DOMParser().parseFromString(text, 'image/svg+xml');
+  const svg = d.documentElement;
+  if (svg.localName !== 'svg') return null;
+  if (!svg.getAttribute('viewBox')) {
+    const ow = parseFloat(svg.getAttribute('width')) || w, oh = parseFloat(svg.getAttribute('height')) || h;
+    svg.setAttribute('viewBox', `0 0 ${ow} ${oh}`);
+  }
+  svg.setAttribute('width', Math.max(1, w));
+  svg.setAttribute('height', Math.max(1, h));
+  svg.setAttribute('preserveAspectRatio', 'none');
+  return new XMLSerializer().serializeToString(svg);
+}
+async function toPngBytes(src) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = src; });
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext('2d').drawImage(img, 0, 0);
+  const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+function tree(doc, id) {
+  const n = doc.nodes[id];
+  const out = { ...n };
+  delete out.parentId;
+  if (n.children) out.children = n.children.map((c) => tree(doc, c)).filter(Boolean);
+  return out;
+}
+
+$('#go').onclick = async () => {
+  const link = $('#link').value.trim();
+  if (!link) return status('Pegá el link de Lienzo.', true);
+  $('#go').disabled = true;
+  try {
+    status('Descargando el diseño…');
+    const res = await fetch(link);
+    if (res.status === 401) throw new Error('El link no tiene la clave correcta. Copialo de nuevo desde Lienzo.');
+    if (!res.ok) throw new Error('No se pudo descargar (' + res.status + '). ¿La app de Render está despierta? Abrila en el navegador y reintentá.');
+    const doc = await res.json();
+    const pages = doc.nodes[doc.rootId].children.map((pid) => tree(doc, pid));
+    // Preparar imágenes
+    const images = {};
+    const imgs = [];
+    const walk = (n) => { if (n.type === 'IMAGE' && n.src) imgs.push(n); (n.children || []).forEach(walk); };
+    pages.forEach(walk);
+    let k = 0;
+    for (const n of imgs) {
+      status(`Preparando imágenes… ${++k}/${imgs.length}`);
+      try {
+        if (/^data:image\/svg\+xml/i.test(n.src)) n.svg = sizedSvg(dataToText(n.src), n.width, n.height);
+        else if (/\.svg(\?|$)/i.test(n.src)) n.svg = sizedSvg(await (await fetch(n.src)).text(), n.width, n.height);
+        else { const key = 'img' + k; images[key] = await toPngBytes(n.src); n.imageKey = key; }
+      } catch (err) { n.missing = true; }
+      delete n.src;
+    }
+    status('Creando capas en Figma…');
+    parent.postMessage({ pluginMessage: { type: 'import', link, name: doc.name, pages, images } }, '*');
+  } catch (err) {
+    status('Error: ' + err.message, true);
+    $('#go').disabled = false;
+  }
+};
+</script>
