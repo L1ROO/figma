@@ -1,0 +1,112 @@
+# Lienzo
+
+Editor de diseño tipo Figma, hecho para que Claude pueda leer y editar tus diseños por MCP sin límites de llamadas. Lo que Claude cambia aparece en vivo en el navegador, y lo que vos cambiás lo ve Claude.
+
+## Qué tiene
+
+- Lienzo infinito con zoom y desplazamiento (rueda, Ctrl+rueda, espacio + arrastrar, pellizco en pantallas táctiles).
+- Frames, rectángulos, elipses, líneas, textos e imágenes (subir, pegar o arrastrar archivos).
+- Mover, redimensionar (Shift mantiene proporción, Alt desde el centro), guías de alineación, alinear, agrupar, duplicar, copiar y pegar, ordenar capas.
+- Panel de capas con arrastre para reordenar o meter dentro de frames, ocultar y bloquear.
+- Panel de propiedades: posición, tamaño, rotación, radio, opacidad, relleno (colores o gradientes CSS), borde, sombra, tipografía (cualquier fuente de Google Fonts).
+- Varias páginas por diseño, deshacer y rehacer, exportar a SVG.
+- Prototipos con tocar, hover, presionar y temporizador; navegar, overlays, links, scroll y estilos. Se prueban con **Presentar**, también desde el celular, y se pasan a Figma con el plugin incluido.
+- Servidor MCP con 14 herramientas, incluida una captura PNG para que Claude vea cómo quedó.
+
+## Traer diseños de Figma (sin gastar tokens)
+
+1. En Figma seleccioná el frame y en el panel derecho, en **Export**, elegí **SVG**.
+2. En los tres puntos (…) de la exportación desmarcá **Outline text** y marcá **Include "id" attribute**. Así los textos quedan editables y las capas conservan su nombre.
+3. Exportá y arrastrá el `.svg` al lienzo, o tocá **Importar**. También podés pegar el SVG con Ctrl+V.
+
+La conversión la hace la página: frames, textos, rectángulos, elipses, líneas, degradados, sombras e imágenes quedan como capas editables. Los íconos y formas complejas quedan como imágenes vectoriales. Si querés soltar un SVG como imagen única, mantené Shift al arrastrarlo.
+
+## Prototipos
+
+Seleccioná una capa y en el panel derecho, en **Prototipo**, tocá **+** para agregar interacciones. Cada una tiene:
+
+- **Cuándo:** al tocar, al pasar el mouse, mientras se presiona, o después de un tiempo.
+- **Acción:** ir a pantalla, volver atrás, abrir encima (overlay: menús, hojas, popups), reemplazar overlay, cerrar overlay, abrir un link, desplazar hasta una capa, o cambiar estilo (color, borde, opacidad, radio, sombra o texto; con hover y presionar vuelve solo).
+- **Animación:** fundido, deslizar, subir desde abajo o ninguna. Los overlays además tienen posición, fondo oscuro y cierre al tocar afuera.
+
+Para que una pantalla haga scroll, seleccioná el frame y poné su **Alto visible** (por ejemplo 844). En el lienzo aparece una línea punteada en ese alto. Marcá **Fijo al hacer scroll** en los headers o barras de pestañas.
+
+Tocá **Presentar** (o Shift+Enter) para probarlo. Tocar fuera de un botón muestra en azul lo que se puede tocar. Esc cierra el overlay o sale y R vuelve al inicio. La URL del modo Presentar se puede abrir en el celular.
+
+## Pasar a Figma con el prototipo
+
+Copiar y pegar en Figma no puede llevar las conexiones: el SVG no las guarda. Para eso está el plugin de la carpeta `figma-plugin`, que crea capas reales de Figma con sus interacciones.
+
+**Instalarlo (una sola vez, necesita la app de escritorio de Figma):**
+1. Descargá la carpeta `figma-plugin` a tu compu.
+2. En Figma de escritorio: menú **Plugins → Development → Import plugin from manifest…** y elegí `figma-plugin/manifest.json`.
+
+**Usarlo:**
+1. En Lienzo: **Exportar → Para Figma, con prototipo**. Se copia un link.
+2. En Figma: **Plugins → Development → Lienzo → Figma**, pegá el link y tocá **Importar a Figma**.
+
+Qué se pasa: frames, textos (con su fuente si está en Figma), rectángulos, elipses, líneas, degradados, sombras, imágenes, íconos SVG como vectores editables, las conexiones (navegar, volver, overlays, cerrar, links, desplazar, después de un tiempo), scroll vertical y elementos fijos. Los cambios de estilo con hover, presionar o tocar se convierten en un componente con dos variantes y la interacción "Change to", como se hace en Figma; esos componentes quedan a la derecha del diseño.
+
+Qué hay que retocar a mano en Figma: la posición y el fondo oscuro de los overlays (Figma no deja que un plugin los configure; por defecto quedan centrados).
+
+## Subirlo a Render
+
+1. Subí esta carpeta a un repositorio de GitHub (sin `node_modules`).
+2. En Render: **New → Blueprint**, elegí el repo. El archivo `render.yaml` crea solo la web y una base de datos Postgres.
+3. Abrí la URL de tu servicio (`https://lienzo-xxxx.onrender.com`) y tocá **Crear cuenta**.
+
+Si preferís crearlo a mano: **New → Web Service**, Build `npm install`, Start `npm start`, y agregá la variable `DATABASE_URL`.
+
+## Cuentas
+
+No hay usuarios: cada cuenta es solo una contraseña. En **Crear cuenta** elegís una (mínimo 4 caracteres) y después entrás escribiendo esa misma contraseña. Cada cuenta ve únicamente sus propios diseños.
+
+- La contraseña no se guarda: se guarda un hash (scrypt). No hay forma de recuperarla si la olvidás.
+- Como no hay usuario, la contraseña tiene que ser única: si otra persona ya eligió esa misma, no te deja usarla. Usá una larga que no uses en otro lado.
+- Después de 15 intentos fallidos desde la misma conexión, hay que esperar 15 minutos.
+- La primera cuenta que se crea se queda con los diseños que existían antes de que hubiera cuentas.
+- La variable `ACCESS_TOKEN` ya no se usa; si la tenés en Render podés borrarla.
+
+## Conectar Claude
+
+En Claude: **Configuración → Conectores → Agregar conector personalizado** y pegá:
+
+```
+https://TU-APP.onrender.com/mcp/<clave de tu cuenta>
+```
+
+Cada cuenta tiene su propio link, que aparece en la pantalla de inicio y en el panel derecho del editor (con nada seleccionado). Claude solo ve los diseños de esa cuenta. Si el link se filtra, en la pantalla de inicio podés generar uno nuevo y el viejo deja de funcionar.
+
+Después podés pedirle cosas como: "Abrí mi diseño en Lienzo, armá la pantalla de perfil de Swappit al lado de Inicio y mostrame una captura".
+
+## Herramientas MCP
+
+| Herramienta | Para qué |
+|---|---|
+| `list_documents`, `create_document` | Ver y crear diseños |
+| `get_document` | Árbol de capas en texto compacto (gasta pocos tokens) |
+| `get_nodes`, `find_nodes`, `export_node_json` | Detalle, búsqueda y exportar como JSON |
+| `create_nodes` | Crear pantallas enteras (con hijos anidados) en una sola llamada |
+| `update_nodes`, `delete_nodes`, `move_nodes`, `duplicate_nodes` | Editar en lote |
+| `bulk_update` | Cambiar muchas capas por filtro (ej. todas las fuentes de un tipo) sin listar ids |
+| `create_page` | Agregar páginas |
+| `get_screenshot` | Captura PNG de una página o frame |
+
+## Importante sobre el plan gratis de Render
+
+- El servicio gratis se duerme a los 15 minutos sin uso y tarda cerca de un minuto en despertar. Si Claude dice que no puede conectarse, abrí la web primero y reintentá.
+- Sin base de datos, los diseños se pierden cada vez que el servicio se reinicia. Por eso el `render.yaml` crea Postgres.
+- La base Postgres gratis de Render vence a los 30 días. Para algo permanente usá una base gratis de [Neon](https://neon.tech): creá un proyecto, copiá su connection string y ponela en `DATABASE_URL` en Render (el `render.yaml` incluido ya está armado así).
+
+## Usarlo en tu computadora
+
+```bash
+npm install
+npm start
+```
+
+Abrí http://localhost:3000 y creá una cuenta. Sin `DATABASE_URL`, los diseños y las cuentas se guardan en la carpeta `data/`.
+
+## Lo que todavía no tiene
+
+Auto layout, componentes y variantes editables en Lienzo, herramienta pluma (vectores) e importar archivos `.fig`. La captura del MCP aproxima los gradientes a color sólido y usa una tipografía sans genérica; en el navegador se ve todo con la fuente real.

@@ -1,0 +1,22 @@
+{
+  "name": "lienzo",
+  "version": "1.0.0",
+  "description": "Editor de diseño tipo Figma con servidor MCP para que Claude lea y edite los diseños",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "express": "^5.3.0",
+    "pg": "^8.23.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
+  }
+}

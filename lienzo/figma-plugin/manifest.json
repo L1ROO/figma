@@ -1,0 +1,13 @@
+{
+  "name": "Lienzo → Figma",
+  "id": "lienzo-figma-import-local",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "Descarga el diseño desde tu servidor de Lienzo (por ejemplo, tu app en onrender.com) y las imágenes que use."
+  }
+}
